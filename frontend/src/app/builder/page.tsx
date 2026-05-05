@@ -7,6 +7,8 @@ import api from '@/lib/api';
 import Link from 'next/link';
 import { FaArrowLeft, FaDownload, FaSave, FaCheck, FaTrash, FaPlus } from 'react-icons/fa';
 import ResumePreview from '@/components/templates/ResumePreview';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 // Basic empty resume structure
 const emptyResume = {
@@ -118,29 +120,58 @@ function BuilderContent() {
   };
 
   const handleDownloadPDF = async () => {
+    setSaving(true);
+    handleSave();
+    
     try {
-      handleSave(); // save first
+      // 1. Try backend first (for higher quality)
       const res = await api.post(`/resumes/export/pdf`, resume, { responseType: 'blob' });
       
-      // Check if the response is actually a JSON error hidden in a blob
-      if (res.data.type === 'application/json') {
-        const text = await res.data.text();
-        const error = JSON.parse(text);
-        alert(error.message || 'Failed to generate PDF');
+      if (res.data.type !== 'application/json') {
+        const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${resume.personalInfo?.fullName || 'resume'}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        setSaving(false);
         return;
       }
-
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${resume.personalInfo?.fullName || 'resume'}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Download error', error);
-      alert('Error downloading PDF. The PDF engine might be starting up, please try again in a few seconds.');
+      console.warn('Backend PDF failed, falling back to client-side', error);
+    }
+
+    // 2. Client-side fallback (works offline/without server)
+    try {
+      const element = document.getElementById('resume-preview-content');
+      if (!element) throw new Error('Preview element not found');
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        format: 'a4',
+        unit: 'mm',
+      });
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${resume.personalInfo?.fullName || 'resume'}.pdf`);
+      setSaving(false);
+    } catch (err) {
+      console.error('Client-side PDF failed', err);
+      alert('Error generating PDF. Please try again or refresh the page.');
+      setSaving(false);
     }
   };
 

@@ -24,6 +24,7 @@ const ResumePreview: React.FC<ResumePreviewProps> = ({ data, template, scale = 1
 
   return (
     <div 
+      id="resume-preview-content"
       style={{ 
         transform: `scale(${scale})`, 
         transformOrigin: 'top center',
