@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
+    "@sparticuz/chromium-min": "^148.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "docx": "^8.5.0",
@@ -18,7 +19,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb-memory-server": "^11.1.0",
     "mongoose": "^8.2.0",
-    "puppeteer": "^24.42.0"
+    "puppeteer": "^24.42.0",
+    "puppeteer-core": "^24.42.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

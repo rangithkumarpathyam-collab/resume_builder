@@ -22,7 +22,7 @@ const emptyResume = {
 import { Suspense } from 'react';
 
 function BuilderContent() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const resumeId = searchParams.get('id');
@@ -33,53 +33,51 @@ function BuilderContent() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [fetching, setFetching] = useState(true);
 
-  // Fetch resume data
+  // Fetch resume data from localStorage
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/login');
-      return;
+    if (resumeId) {
+      const saved = localStorage.getItem('resumes');
+      if (saved) {
+        const resumes = JSON.parse(saved);
+        const current = resumes.find((r: any) => r._id === resumeId);
+        if (current) {
+          setResume(current);
+        }
+      }
     }
+    setFetching(false);
+  }, [resumeId]);
 
-    if (resumeId && user) {
-      api.get(`/resumes/${resumeId}`)
-        .then(res => {
-          if (res.data.success) {
-            setResume(res.data.resume);
-          }
-        })
-        .catch(err => {
-          console.error('Error fetching resume', err);
-        })
-        .finally(() => {
-          setFetching(false);
-        });
-    } else if (!resumeId) {
-      setFetching(false);
-    }
-  }, [resumeId, user, loading, router]);
-
-  // Auto-save debounced
+  // Auto-save to localStorage
   useEffect(() => {
     if (fetching || !resumeId || resume === emptyResume) return;
     
     const timeoutId = setTimeout(() => {
       handleSave();
-    }, 2000);
+    }, 1000);
 
     return () => clearTimeout(timeoutId);
   }, [resume, fetching]);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!resumeId) return;
     setSaving(true);
-    try {
-      await api.put(`/resumes/${resumeId}`, resume);
-      setLastSaved(new Date());
-    } catch (err) {
-      console.error('Failed to save', err);
-    } finally {
-      setSaving(false);
+    
+    const saved = localStorage.getItem('resumes');
+    const resumes = saved ? JSON.parse(saved) : [];
+    const index = resumes.findIndex((r: any) => r._id === resumeId);
+    
+    const updatedResume = { ...resume, updatedAt: new Date().toISOString() };
+    
+    if (index !== -1) {
+      resumes[index] = updatedResume;
+    } else {
+      resumes.push(updatedResume);
     }
+    
+    localStorage.setItem('resumes', JSON.stringify(resumes));
+    setLastSaved(new Date());
+    setSaving(false);
   };
 
   const handleChange = (section: string, field: string, value: any) => {
@@ -111,18 +109,28 @@ function BuilderContent() {
 
   const handleDownloadPDF = async () => {
     try {
-      await handleSave(); // save first
-      const res = await api.get(`/resumes/${resumeId}/export/pdf`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      handleSave(); // save first
+      const res = await api.post(`/resumes/export/pdf`, resume, { responseType: 'blob' });
+      
+      // Check if the response is actually a JSON error hidden in a blob
+      if (res.data.type === 'application/json') {
+        const text = await res.data.text();
+        const error = JSON.parse(text);
+        alert(error.message || 'Failed to generate PDF');
+        return;
+      }
+
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `${resume.personalInfo?.fullName || 'resume'}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error', error);
-      alert('Error downloading PDF.');
+      alert('Error downloading PDF. The PDF engine might be starting up, please try again in a few seconds.');
     }
   };
 

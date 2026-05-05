@@ -10,13 +10,15 @@ const resumeRoutes = require('./routes/resume');
 
 const app = express();
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB (Optional for exports, but keeps health check alive)
+connectDB().catch(err => console.log('Database optional for stateless exports'));
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false // Disable for easier testing in dev
+}));
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: '*', // Allow all origins for the redesigned guest app
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -24,11 +26,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), mode: 'guest' });
 });
 
 // Routes
-app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 
 // 404 handler
@@ -46,7 +47,13 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Resume Builder API running on port ${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
-});
+
+// Only start listener when not in serverless (Vercel)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Resume Builder API running on port ${PORT}`);
+    console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
+  });
+}
+
+module.exports = app;

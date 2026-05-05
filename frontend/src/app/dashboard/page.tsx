@@ -13,76 +13,81 @@ export default function Dashboard() {
   const [resumes, setResumes] = useState<any[]>([]);
   const [fetching, setFetching] = useState(true);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/login');
+  const fetchResumes = () => {
+    const saved = localStorage.getItem('resumes');
+    if (saved) {
+      setResumes(JSON.parse(saved));
     }
-  }, [user, loading, router]);
-
-  const fetchResumes = async () => {
-    try {
-      const res = await api.get('/resumes');
-      if (res.data.success) {
-        setResumes(res.data.resumes);
-      }
-    } catch (error) {
-      console.error('Error fetching resumes', error);
-    } finally {
-      setFetching(false);
-    }
+    setFetching(false);
   };
 
   useEffect(() => {
-    if (user) {
-      fetchResumes();
-    }
-  }, [user]);
+    fetchResumes();
+  }, []);
 
-  const createResume = async () => {
-    try {
-      const res = await api.post('/resumes', { title: 'Untitled Resume', template: 'modern' });
-      if (res.data.success) {
-        router.push(`/builder?id=${res.data.resume._id}`);
-      }
-    } catch (error) {
-      console.error('Error creating resume', error);
-    }
+  const saveToLocal = (newResumes: any[]) => {
+    setResumes(newResumes);
+    localStorage.setItem('resumes', JSON.stringify(newResumes));
   };
 
-  const deleteResume = async (id: string) => {
+  const createResume = () => {
+    const newResume = {
+      _id: Math.random().toString(36).substr(2, 9),
+      title: 'Untitled Resume',
+      template: 'modern',
+      personalInfo: { fullName: '' },
+      updatedAt: new Date().toISOString()
+    };
+    const updated = [newResume, ...resumes];
+    saveToLocal(updated);
+    router.push(`/builder?id=${newResume._id}`);
+  };
+
+  const deleteResume = (id: string) => {
     if (!window.confirm('Are you sure you want to delete this resume?')) return;
-    try {
-      await api.delete(`/resumes/${id}`);
-      setResumes(resumes.filter(r => r._id !== id));
-    } catch (error) {
-      console.error('Error deleting resume', error);
-    }
+    const updated = resumes.filter(r => r._id !== id);
+    saveToLocal(updated);
   };
 
-  const duplicateResume = async (id: string) => {
-    try {
-      const res = await api.post(`/resumes/${id}/duplicate`);
-      if (res.data.success) {
-        setResumes([res.data.resume, ...resumes]);
-      }
-    } catch (error) {
-      console.error('Error duplicating resume', error);
-    }
+  const duplicateResume = (id: string) => {
+    const original = resumes.find(r => r._id === id);
+    if (!original) return;
+    const duplicate = {
+      ...JSON.parse(JSON.stringify(original)),
+      _id: Math.random().toString(36).substr(2, 9),
+      title: `${original.title} (Copy)`,
+      updatedAt: new Date().toISOString()
+    };
+    const updated = [duplicate, ...resumes];
+    saveToLocal(updated);
   };
 
   const handleDownloadPDF = async (id: string, name: string) => {
     try {
-      const res = await api.get(`/resumes/${id}/export/pdf`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const resume = resumes.find(r => r._id === id);
+      if (!resume) return;
+      
+      const res = await api.post(`/resumes/export/pdf`, resume, { responseType: 'blob' });
+      
+      // Check if the response is actually a JSON error hidden in a blob
+      if (res.data.type === 'application/json') {
+        const text = await res.data.text();
+        const error = JSON.parse(text);
+        alert(error.message || 'Failed to generate PDF');
+        return;
+      }
+
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `${name || 'resume'}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
-    } catch (error) {
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
       console.error('Download error', error);
-      alert('Error downloading PDF. Try the browser print function instead.');
+      alert('Error downloading PDF. The PDF engine might be starting up, please try again in a few seconds.');
     }
   };
 
@@ -90,7 +95,6 @@ export default function Dashboard() {
     return <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">Loading...</div>;
   }
 
-  if (!user) return null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

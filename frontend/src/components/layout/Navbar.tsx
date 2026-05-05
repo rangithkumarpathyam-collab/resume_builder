@@ -23,35 +23,12 @@ export default function Navbar() {
           </div>
           
           <div className="flex items-center space-x-4">
-            {!loading && (
-              <>
-                {user ? (
-                  <>
-                    <Link href="/dashboard" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                      Dashboard
-                    </Link>
-                    <button
-                      onClick={logout}
-                      className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2 rounded-md text-sm font-medium transition-colors"
-                    >
-                      Logout
-                    </button>
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <Link href="/auth/login" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                      Log in
-                    </Link>
-                    <Link href="/auth/signup" className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm">
-                      Sign up
-                    </Link>
-                  </>
-                )}
-              </>
-            )}
+            <Link href="/dashboard" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+              My Resumes
+            </Link>
+            <Link href="/dashboard" className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm">
+              Dashboard
+            </Link>
           </div>
         </div>
       </div>

@@ -1,27 +1,44 @@
 const generatePDF = async (resumeData) => {
-  // Generate HTML for the resume based on template
   const html = generateResumeHTML(resumeData);
 
-  // Try puppeteer first, fall back to basic HTML-to-PDF
+  let browser = null;
   try {
-    const puppeteer = require('puppeteer');
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    const isVercel = process.env.VERCEL || process.env.NODE_ENV === 'production';
+    
+    if (isVercel) {
+      // Serverless (Vercel) configuration
+      const chromium = require('@sparticuz/chromium-min');
+      const puppeteer = require('puppeteer-core');
+      
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar'),
+        headless: chromium.headless,
+      });
+    } else {
+      // Local development configuration
+      const puppeteer = require('puppeteer');
+      browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+    }
+
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' }
+      margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
     });
+    
     await browser.close();
     return Buffer.from(pdf);
   } catch (err) {
-    console.log('Puppeteer not available, using HTML buffer fallback');
-    // Return a simple HTML file as PDF fallback
-    return Buffer.from(html, 'utf-8');
+    console.error('PDF Generation Error:', err);
+    if (browser) await browser.close();
+    throw new Error('Failed to generate professional PDF: ' + err.message);
   }
 };
 

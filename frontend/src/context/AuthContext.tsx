@@ -21,47 +21,35 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const GUEST_USER: User = {
+  id: 'guest',
+  name: 'Guest User',
+  email: 'guest@example.com'
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(GUEST_USER);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   const checkAuth = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      
-      const res = await api.get('/auth/me');
-      if (res.data.success) {
-        setUser(res.data.user);
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
+    // No-op for guest mode
+    setLoading(false);
   };
 
   useEffect(() => {
-    checkAuth();
+    setLoading(false);
   }, []);
 
   const login = (token: string, userData: User) => {
-    localStorage.setItem('token', token);
     setUser(userData);
     router.push('/dashboard');
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
     setUser(null);
-    router.push('/auth/login');
+    router.push('/');
   };
 
   return (

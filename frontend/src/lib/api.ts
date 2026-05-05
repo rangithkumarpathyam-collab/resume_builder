@@ -9,20 +9,5 @@ const api = axios.create({
   },
 });
 
-// Add a request interceptor to add token
-api.interceptors.request.use(
-  (config) => {
-    // We'll manage token in localStorage or via a cookie in a real app
-    // Here we'll read from localStorage for simplicity
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
+// No interceptors needed for guest mode
 export default api;

@@ -4,25 +4,29 @@ const connectDB = async () => {
   try {
     // Try to connect to the provided URI first
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 2000, // Reduced timeout so it falls back quickly
+      serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.warn(`⚠️ MongoDB Connection Error: ${error.message}`);
-    console.log('🔄 Starting robust fallback: In-Memory MongoDB Server...');
     
+    // If we're on Vercel, don't use MongoMemoryServer as it requires downloading a binary which fails
+    if (process.env.VERCEL) {
+      console.error('❌ Cannot start In-Memory MongoDB on Vercel. Please provide a real MONGODB_URI.');
+      return;
+    }
+
+    console.log('🔄 Starting local fallback: In-Memory MongoDB Server...');
     try {
       const { MongoMemoryServer } = require('mongodb-memory-server');
       const mongoServer = await MongoMemoryServer.create();
       const mongoUri = mongoServer.getUri();
       
-      await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 5000,
-      });
-      console.log(`✅ Fallback In-Memory MongoDB Connected successfully!`);
+      await mongoose.connect(mongoUri);
+      console.log(`✅ Local In-Memory MongoDB Connected!`);
     } catch (fallbackError) {
-      console.error(`❌ Fatal: In-Memory Database also failed to start.`, fallbackError);
+      console.error(`❌ Fatal: In-Memory Database also failed.`, fallbackError);
     }
   }
 };

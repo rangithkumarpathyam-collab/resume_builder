@@ -19,6 +19,14 @@ exports.signup = async (req, res) => {
     }
 
     const { name, email, password } = req.body;
+    
+    // Check database connection
+    if (User.db.readyState !== 1) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Database is currently unavailable. Please ensure MONGODB_URI is configured correctly.' 
+      });
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -69,6 +77,14 @@ exports.login = async (req, res) => {
     }
 
     const { email, password } = req.body;
+
+    // Check database connection
+    if (User.db.readyState !== 1) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Database is currently unavailable. Please ensure MONGODB_URI is configured correctly.' 
+      });
+    }
 
     // Find user with password field
     const user = await User.findOne({ email }).select('+password');

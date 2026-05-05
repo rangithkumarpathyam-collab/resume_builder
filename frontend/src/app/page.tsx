@@ -17,11 +17,8 @@ export default function Home() {
               Create a standout resume that gets you hired. Choose from beautiful templates, customize your details, and download as PDF instantly.
             </p>
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-              <Link href="/auth/signup" className="w-full sm:w-auto px-8 py-4 text-lg font-bold rounded-full text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-1">
-                Create My Resume
-              </Link>
-              <Link href="/auth/login" className="w-full sm:w-auto px-8 py-4 text-lg font-bold rounded-full text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-all duration-200">
-                Log In
+              <Link href="/dashboard" className="w-full sm:w-auto px-8 py-4 text-lg font-bold rounded-full text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-1">
+                Start Building - No Account Needed
               </Link>
             </div>
           </div>
