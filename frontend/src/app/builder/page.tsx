@@ -104,9 +104,11 @@ function BuilderContent() {
   };
 
   const handleArrayChange = (section: string, index: number, field: string, value: any) => {
-    const newArray = [...resume[section]];
-    newArray[index] = { ...newArray[index], [field]: value };
-    setResume({ ...resume, [section]: newArray });
+    const newArray = [...(resume[section] || [])];
+    if (newArray[index]) {
+      newArray[index] = { ...newArray[index], [field]: value };
+      setResume({ ...resume, [section]: newArray });
+    }
   };
 
   const handleAddItem = (section: string, emptyItem: any) => {
@@ -114,7 +116,7 @@ function BuilderContent() {
   };
 
   const handleRemoveItem = (section: string, index: number) => {
-    const newArray = [...resume[section]];
+    const newArray = [...(resume[section] || [])];
     newArray.splice(index, 1);
     setResume({ ...resume, [section]: newArray });
   };
@@ -123,12 +125,18 @@ function BuilderContent() {
     setSaving(true);
     handleSave();
     
+    let backendSuccess = false;
+
     try {
       // 1. Try backend first (for higher quality)
-      const res = await api.post(`/resumes/export/pdf`, resume, { responseType: 'blob' });
+      const res = await api.post(`/resumes/export/pdf`, resume, { 
+        responseType: 'blob',
+        timeout: 15000 // 15s timeout
+      });
       
-      if (res.data.type !== 'application/json') {
-        const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      // Strict check: Only download if it's actually a PDF
+      if (res.data && res.data.type === 'application/pdf' && res.data.size > 1000) {
+        const url = window.URL.createObjectURL(res.data);
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `${resume.personalInfo?.fullName || 'resume'}.pdf`);
@@ -136,11 +144,17 @@ function BuilderContent() {
         link.click();
         link.parentNode?.removeChild(link);
         window.URL.revokeObjectURL(url);
-        setSaving(false);
-        return;
+        backendSuccess = true;
+      } else {
+        console.warn('Backend returned non-PDF or empty content:', res.data.type);
       }
     } catch (error) {
-      console.warn('Backend PDF failed, falling back to client-side', error);
+      console.warn('Backend PDF failed, falling back to client-side:', error);
+    }
+
+    if (backendSuccess) {
+      setSaving(false);
+      return;
     }
 
     // 2. Client-side fallback (works offline/without server)
@@ -148,29 +162,39 @@ function BuilderContent() {
       const element = document.getElementById('resume-preview-content');
       if (!element) throw new Error('Preview element not found');
 
+      // Scroll to top to ensure html2canvas captures correctly
+      window.scrollTo(0, 0);
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
       });
       
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF({
-        format: 'a4',
+        orientation: 'portrait',
         unit: 'mm',
+        format: 'a4'
       });
       
-      const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // Calculate dimensions to fit image while maintaining aspect ratio
+      const imgProps = pdf.getImageProperties(imgData);
+      const ratio = imgProps.width / imgProps.height;
+      const displayHeight = pdfWidth / ratio;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, displayHeight);
       pdf.save(`${resume.personalInfo?.fullName || 'resume'}.pdf`);
       setSaving(false);
     } catch (err) {
       console.error('Client-side PDF failed', err);
-      alert('Error generating PDF. Please try again or refresh the page.');
+      alert('Error generating PDF locally. Please ensure the preview is visible and try again.');
       setSaving(false);
     }
   };
