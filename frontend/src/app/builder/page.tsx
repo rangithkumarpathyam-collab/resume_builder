@@ -41,7 +41,17 @@ function BuilderContent() {
         const resumes = JSON.parse(saved);
         const current = resumes.find((r: any) => r._id === resumeId);
         if (current) {
-          setResume(current);
+          // Ensure all required fields exist
+          const sanitized = {
+            ...emptyResume,
+            ...current,
+            personalInfo: { ...emptyResume.personalInfo, ...(current.personalInfo || {}) },
+            experience: current.experience || [],
+            education: current.education || [],
+            skills: current.skills || [],
+            projects: current.projects || []
+          };
+          setResume(sanitized);
         }
       }
     }
@@ -98,7 +108,7 @@ function BuilderContent() {
   };
 
   const handleAddItem = (section: string, emptyItem: any) => {
-    setResume({ ...resume, [section]: [...resume[section], emptyItem] });
+    setResume({ ...resume, [section]: [...(resume[section] || []), emptyItem] });
   };
 
   const handleRemoveItem = (section: string, index: number) => {
